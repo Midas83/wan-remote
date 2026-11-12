@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Wan Remote</title>
+<style>
+  :root {
+    --bg: #f5f4f0; --card: #ffffff; --ink: #1c1b19; --muted: #6d6a63; --line: #dfdcd4;
+    --accent: #1f6f5c; --accent-ink: #ffffff; --bad: #a8321f; --warn: #8a6100; --ok: #1f6f5c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151614; --card: #1f201d; --ink: #ecebe6; --muted: #9a978f; --line: #33342f;
+      --accent: #4fb89d; --accent-ink: #0c1a16; --bad: #ee8a78; --warn: #e0b558; --ok: #4fb89d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 32px 0 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .card + .card { margin-top: 12px; }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 14px 0 6px; }
+  label:first-child { margin-top: 0; }
+  textarea, select, input[type=password], input[type=file] {
+    width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  textarea:focus, select:focus, input:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { font: inherit; font-weight: 600; border-radius: 8px; border: 1px solid transparent; padding: 10px 18px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); margin-top: 16px; }
+  button.primary:disabled { opacity: 0.55; cursor: default; }
+  button.quiet { background: none; border-color: var(--line); color: var(--muted); padding: 5px 10px; font-size: 13px; font-weight: 500; }
+  .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+  .msg { font-size: 14px; margin: 12px 0 0; min-height: 1.4em; }
+  .msg.bad { color: var(--bad); }
+  .pc { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .pc.on .dot { background: var(--ok); } .pc.off .dot { background: var(--bad); }
+  .job-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .chip { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .chip.queued { color: var(--muted); } .chip.running { color: var(--warn); } .chip.done { color: var(--ok); } .chip.failed { color: var(--bad); }
+  .when { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .prompt { margin: 0; overflow-wrap: anywhere; }
+  .err { color: var(--bad); font-size: 14px; margin: 8px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+  video { width: 100%; border-radius: 8px; margin-top: 12px; background: #000; display: block; }
+  .job-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+  a { color: var(--accent); font-weight: 600; font-size: 14px; }
+  .remember { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+  .remember input { width: auto; }
+  .empty { color: var(--muted); font-size: 14px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Wan Remote</h1>
+    <div class="pc" id="pc" hidden><span class="dot"></span><span id="pcText">Checking home PC…</span></div>
+  </header>
+
+  <section class="card" id="lock">
+    <form id="lockForm">
+      <label for="pw">Password</label>
+      <input type="password" id="pw" autocomplete="current-password" required>
+      <label class="remember"><input type="checkbox" id="remember"> Stay unlocked on this device</label>
+      <button class="primary" id="unlockBtn">Unlock</button>
+      <p class="msg bad" id="lockMsg" role="alert"></p>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <section class="card">
+      <form id="form">
+        <label for="prompt">What should the video show?</label>
+        <textarea id="prompt" maxlength="2000" required placeholder="Describe the subject, the action, the camera movement, the lighting and the style."></textarea>
+
+        <label for="preset">Quality</label>
+        <select id="preset">
+          <option value="best">Best motion and detail · 832×480 · about 2 min</option>
+          <option value="hd">HD landscape · 1280×704 · about 10 min</option>
+          <option value="hdp">HD portrait · 704×1280 · about 10 min</option>
+          <option value="draft">Quick draft · 832×480, 2 seconds · about 1 min</option>
+        </select>
+
+        <label for="image">Start image (optional)</label>
+        <input type="file" id="image" accept="image/png,image/jpeg,image/webp">
+        <p class="hint">With a start image the video animates from that frame. It uses the HD or draft settings.</p>
+
+        <button class="primary" id="go">Send to home PC</button>
+        <p class="msg" id="formMsg" role="status"></p>
+      </form>
+    </section>
+
+    <h2>Your videos</h2>
+    <div id="jobs"><p class="empty">Nothing yet.</p></div>
+    <p style="margin-top:28px"><button class="quiet" id="lockBtn">Lock this page</button></p>
+  </div>
+</main>
+
+<script>
+const API = "https://nicvyxcysbbywxhdosrp.supabase.co/functions/v1/wan";
+const PRESETS = {
+  best:  { model: "14b" },
+  hd:    { model: "5b" },
+  hdp:   { model: "5b", width: 704, height: 1280 },
+  draft: { model: "5b", width: 832, height: 480, frames: 49 },
+};
+const $ = (id) => document.getElementById(id);
+let key = null, timer = null, serverOffset = 0;
+const cards = new Map(); // job id -> { el, sig }
+
+function stored() {
+  try { return sessionStorage.getItem("wanKey") || localStorage.getItem("wanKey"); } catch { return null; }
+}
+function remember(k, keep) {
+  try { (keep ? localStorage : sessionStorage).setItem("wanKey", k); } catch {}
+}
+function forget() {
+  try { sessionStorage.removeItem("wanKey"); localStorage.removeItem("wanKey"); } catch {}
+}
+
+// Must match set_password.py. The password itself never leaves this page.
+async function deriveKey(password) {
+  const enc = new TextEncoder();
+  const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: enc.encode("wan-remote-v1"), iterations: 200000 }, base, 256);
+  return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function api(action, fields = {}, useKey = key) {
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-wan-key": useKey },
+    body: JSON.stringify({ action, ...fields }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { const e = new Error("Wrong password."); e.auth = true; throw e; }
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+  return data;
+}
+
+function showApp() {
+  $("lock").hidden = true; $("app").hidden = false; $("pc").hidden = false;
+  refresh();
+}
+function showLock(message) {
+  clearTimeout(timer); key = null;
+  $("app").hidden = true; $("pc").hidden = true; $("lock").hidden = false;
+  $("lockMsg").textContent = message || "";
+  $("pw").value = ""; $("pw").focus();
+}
+
+$("lockForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const btn = $("unlockBtn");
+  btn.disabled = true; $("lockMsg").textContent = "";
+  try {
+    const k = await deriveKey($("pw").value);
+    await api("ping", {}, k);
+    key = k; remember(k, $("remember").checked);
+    $("pw").value = "";
+    showApp();
+  } catch (e) {
+    $("lockMsg").textContent = e.auth ? "That password did not work." : "Could not reach the queue: " + e.message;
+  } finally { btn.disabled = false; }
+});
+
+$("lockBtn").addEventListener("click", () => { forget(); showLock(); });
+
+$("image").addEventListener("change", () => {
+  const best = $("preset").querySelector('option[value="best"]');
+  const has = $("image").files.length > 0;
+  best.disabled = has;
+  if (has && $("preset").value === "best") $("preset").value = "hd";
+});
+
+$("form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const btn = $("go"), msg = $("formMsg");
+  btn.disabled = true; msg.className = "msg"; msg.textContent = "Sending…";
+  try {
+    const fields = { prompt: $("prompt").value, ...PRESETS[$("preset").value] };
+    const file = $("image").files[0];
+    if (file) {
+      const ext = (file.name.split(".").pop() || "").toLowerCase();
+      msg.textContent = "Uploading start image…";
+      const up = await api("upload_url", { ext });
+      const put = await fetch(up.url, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+      if (!put.ok) throw new Error("The start image did not upload.");
+      fields.input_path = up.path;
+    }
+    await api("submit", fields);
+    msg.textContent = "Sent. It will show up below when the home PC finishes.";
+    $("prompt").value = ""; $("image").value = ""; $("image").dispatchEvent(new Event("change"));
+    refresh();
+  } catch (e) {
+    if (e.auth) return showLock("Please unlock again.");
+    msg.className = "msg bad"; msg.textContent = e.message;
+  } finally { btn.disabled = false; }
+});
+
+function ago(iso) {
+  const s = Math.max(0, Math.round((Date.now() + serverOffset - new Date(iso)) / 1000));
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  return new Date(iso).toLocaleDateString();
+}
+function took(job) {
+  if (!job.started_at || !job.finished_at) return "";
+  const s = Math.round((new Date(job.finished_at) - new Date(job.started_at)) / 1000);
+  return " · took " + (s < 90 ? s + " s" : Math.round(s / 60) + " min");
+}
+
+function buildCard(job) {
+  const el = document.createElement("article");
+  el.className = "card";
+  const top = document.createElement("div"); top.className = "job-top";
+  const chip = document.createElement("span"); chip.className = "chip " + job.status;
+  chip.textContent = { queued: "Waiting", running: "Rendering", done: "Ready", failed: "Failed" }[job.status];
+  const when = document.createElement("span"); when.className = "when";
+  when.textContent = ago(job.created_at) + took(job);
+  top.append(chip, when);
+  const p = document.createElement("p"); p.className = "prompt"; p.textContent = job.prompt;
+  el.append(top, p);
+  if (job.error) { const e = document.createElement("p"); e.className = "err"; e.textContent = job.error; el.append(e); }
+  if (job.video_url) {
+    const v = document.createElement("video");
+    v.controls = true; v.loop = true; v.playsInline = true; v.preload = "metadata"; v.src = job.video_url;
+    el.append(v);
+  }
+  const foot = document.createElement("div"); foot.className = "job-foot";
+  const left = document.createElement("span");
+  if (job.video_url) {
+    const a = document.createElement("a");
+    a.href = job.video_url + "&download=wan-" + job.id.slice(0, 8) + ".mp4"; a.textContent = "Download";
+    left.append(a);
+  }
+  foot.append(left);
+  if (job.status !== "running") {
+    const del = document.createElement("button"); del.className = "quiet"; del.type = "button";
+    del.textContent = job.status === "queued" ? "Cancel" : "Delete";
+    del.addEventListener("click", async () => {
+      if (job.status === "done" && !confirm("Delete this video for good?")) return;
+      del.disabled = true;
+      try { await api("delete", { id: job.id }); } catch (e) { alert(e.message); }
+      refresh();
+    });
+    foot.append(del);
+  }
+  el.append(foot);
+  return el;
+}
+
+function render(data) {
+  serverOffset = new Date(data.now) - Date.now();
+  const busy = data.jobs.some((j) => j.status === "running");
+  const seenAgo = data.worker_seen ? (new Date(data.now) - new Date(data.worker_seen)) / 1000 : Infinity;
+  const pc = $("pc");
+  if (busy) { pc.className = "pc on"; $("pcText").textContent = "Home PC is rendering"; }
+  else if (seenAgo < 120) { pc.className = "pc on"; $("pcText").textContent = "Home PC is online"; }
+  else {
+    pc.className = "pc off";
+    $("pcText").textContent = "Home PC is offline" + (data.worker_seen ? " · last seen " + ago(data.worker_seen) : "");
+  }
+
+  const box = $("jobs");
+  if (!data.jobs.length) { box.innerHTML = '<p class="empty">Nothing yet.</p>'; cards.clear(); return; }
+  box.querySelector(".empty")?.remove();
+  const live = new Set(data.jobs.map((j) => j.id));
+  for (const [id, c] of cards) if (!live.has(id)) { c.el.remove(); cards.delete(id); }
+  let prev = null;
+  for (const job of data.jobs) {
+    // Signed video links change on every poll; leave a finished card alone so playback is not interrupted.
+    const sig = job.status + "|" + (job.error || "") + "|" + (job.video_path || "");
+    let c = cards.get(job.id);
+    if (!c || c.sig !== sig) {
+      const el = buildCard(job);
+      if (c) c.el.replaceWith(el);
+      c = { el, sig }; cards.set(job.id, c);
+    } else {
+      c.el.querySelector(".when").textContent = ago(job.created_at) + took(job);
+    }
+    const want = prev ? prev.nextSibling : box.firstChild;
+    if (c.el !== want) box.insertBefore(c.el, want);
+    prev = c.el;
+  }
+  return data.jobs.some((j) => j.status === "queued" || j.status === "running");
+}
+
+async function refresh() {
+  clearTimeout(timer);
+  if (!key) return;
+  let active = false;
+  try { active = render(await api("list")); }
+  catch (e) { if (e.auth) { forget(); return showLock("Please unlock again."); } }
+  if (!document.hidden) timer = setTimeout(refresh, active ? 8000 : 30000);
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && key) refresh(); });
+
+key = stored();
+if (key) showApp(); else $("pw").focus();
+</script>
+</body>
+</html>
